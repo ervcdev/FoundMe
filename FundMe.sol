@@ -4,53 +4,62 @@
 
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.18;
-import {AggregatorV3Interface} from "./AggregatorV3Interface.sol"
 
-interface AggregatorV3Interface {
-  function decimals() external view returns (uint8);
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-  function description() external view returns (string memory);
+contract FundMe {
+    AggregatorV3Interface internal priceFeed;
 
-  function version() external view returns (uint256);
+    constructor() {
+        // Dirección del oráculo de ETH/USD en la red Ethereum Mainnet
+        priceFeed = AggregatorV3Interface(
+            0x694AA1769357215DE4FAC081bf1f309aDC325306
+        );
+    }
 
-  function getRoundData(
-    uint80 _roundId
-  ) external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
+    uint256 public minimumUsd = 5e18;
 
-  function latestRoundData()
-    external
-    view
-    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
-}
+    address[] public funders; 
+    mapping(address => uint256) public addressToAmountFunded;
 
-contract FUndMe {
-    uint256 public minimumUsd = 5;
-    
+    //priceFeed = AggregatorV3Interface(0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43);
 
-    function fund() public payable{
+    function fund() public payable {
         // Allow user to send $
         // Have a minimum $ sent
         // 1. How do we send ETH to this contract
-        require(msg.value >= minimumUsd, "didn't send enough ETH");
+        require(
+            getConversionRate(msg.value) >= minimumUsd,
+            "didn't send enough ETH"
+        );
 
         //What is a revert?
+        funders.push(msg.sender);
         // Undo any actions that have been done, and send the remaining gas back
-
-
-
+        addressToAmountFunded[msg.sender] = addressToAmountFunded[msg.sender] + msg.value;
     }
+
+    function getLatestPrice() public view returns (uint256) {
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        //price of ETH in terms of USD
+        return uint256(price * 1e10);
+    }
+
     function withdraw() public {}
 
-    function getPrice() public {
-        // Address 0x694AA1769357215DE4FAC081bf1f309aDC325306
-        //Abi
+    function getConversionRate(uint256 ethAmount)
+        public
+        view
+        returns (uint256)
+    {
+        uint256 ethPrice = getLatestPrice();
+        uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1e18;
+        return ethAmountInUsd;
     }
 
-    function getConversionRate() public {}
-
-    function getVersion() public view returns (uint256){
-      return AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306).version();
+    function getVersion() public view returns (uint256) {
+        return
+            AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306)
+                .version();
     }
 }
-
-
